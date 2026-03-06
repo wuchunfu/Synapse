@@ -122,8 +122,15 @@ func ReceiveConnectWithOptions(address string, opts ReceiverOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to open destination file: %w", err)
 	}
-	defer destFile.Close()
 	outPath = destFile.Name()
+
+	success := false
+	defer func() {
+		destFile.Close()
+		if header.IsArchive && !success {
+			os.Remove(outPath)
+		}
+	}()
 
 	req := TransferRequest{
 		Offset: offset,
@@ -224,6 +231,7 @@ func ReceiveConnectWithOptions(address string, opts ReceiverOptions) error {
 		ui.Success("File received: %s", filepath.Join(downloadDir, safeName))
 	}
 
+	success = true
 	if opts.OnComplete != nil {
 		opts.OnComplete(safeName)
 	}
