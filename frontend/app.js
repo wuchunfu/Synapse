@@ -361,35 +361,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         let transferStats = { time: 0, bytes: 0, speedText: '— MB/s' };
+        let isCancelling = false;
 
         // Transfer progress
         window.runtime.EventsOn('transfer:progress', (data) => {
+            if (isCancelling) return;
+
             const overlay = document.getElementById('transfer-overlay');
             if (overlay.style.display !== 'block') {
                 overlay.style.display = 'block';
-                transferStats = { time: Date.now(), bytes: data.bytes_sent, speedText: 'Calculating...' };
+                transferStats = { time: Date.now(), bytes: data.bytes_sent || 0, speedText: 'Calculating...' };
                 document.getElementById('transfer-speed').textContent = transferStats.speedText;
             }
 
-            const percent = data.total_bytes > 0
-                ? Math.round((data.bytes_sent / data.total_bytes) * 100)
-                : 0;
+            const total = data.total_bytes || 0;
+            const sent = data.bytes_sent || 0;
+            const percent = total > 0 ? Math.round((sent / total) * 100) : 0;
 
             const now = Date.now();
             const elapsed = (now - transferStats.time) / 1000;
             if (elapsed >= 0.5) {
-                const bytesDiff = data.bytes_sent - transferStats.bytes;
-                const speed = bytesDiff / elapsed;
+                const bytesDiff = sent - transferStats.bytes;
+                const speed = elapsed > 0 ? Math.max(0, bytesDiff / elapsed) : 0;
                 transferStats.speedText = `${formatBytes(speed)}/s`;
                 transferStats.time = now;
-                transferStats.bytes = data.bytes_sent;
+                transferStats.bytes = sent;
             }
 
             document.getElementById('transfer-speed').textContent = transferStats.speedText;
             document.getElementById('transfer-progress').style.width = `${percent}%`;
             document.getElementById('transfer-file').textContent = data.file_name || '—';
             document.getElementById('transfer-bytes').textContent =
-                `${formatBytes(data.bytes_sent)} / ${formatBytes(data.total_bytes)}`;
+                `${formatBytes(sent)} / ${formatBytes(total)}`;
             document.getElementById('transfer-title').textContent =
                 data.direction === 'send' ? `Sending to ${data.peer_addr}` : `Receiving from ${data.peer_addr}`;
             document.getElementById('transfer-eta').textContent = `${percent}%`;
@@ -397,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Transfer complete
         window.runtime.EventsOn('transfer:complete', (data) => {
+            isCancelling = false;
             const overlay = document.getElementById('transfer-overlay');
             document.getElementById('transfer-progress').style.width = '100%';
             showToast('success', `Transfer complete: ${data.file_name}`);
@@ -408,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Transfer error
         window.runtime.EventsOn('transfer:error', (data) => {
+            isCancelling = false;
             showToast('error', `Transfer failed: ${data.error}`);
             const overlay = document.getElementById('transfer-overlay');
             setTimeout(() => {
@@ -423,12 +428,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Connection accepted
         window.runtime.EventsOn('connection:accepted', (addr) => {
+            isCancelling = false;
             showToast('info', `Connection accepted from ${addr}`);
         });
     }
 
     // Cancel transfer button
     document.getElementById('btn-cancel-transfer').addEventListener('click', () => {
+        isCancelling = true;
         window.go.gui.App.CancelTransfer();
         document.getElementById('transfer-overlay').style.display = 'none';
     });
@@ -437,10 +444,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Utility Functions
     // ========================================
     function formatBytes(bytes) {
-        if (!bytes || bytes === 0) return '0 B';
+        if (!bytes || isNaN(bytes) || bytes === 0) return '0 B';
         const units = ['B', 'KB', 'MB', 'GB', 'TB'];
         let i = 0;
-        let size = bytes;
+        let size = Number(bytes);
+        if (size < 0) size = 0;
         while (size >= 1000 && i < units.length - 1) {
             size /= 1000;
             i++;
