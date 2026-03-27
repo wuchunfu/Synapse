@@ -16,7 +16,7 @@
 
 # ⚡ Synapse
 
-**Synapse** (formerly LanDrop) is a peer-to-peer file transfer application for Local Area Networks. It features a beautiful glassmorphic desktop GUI built with Wails v2, automatic device discovery via mDNS, and end-to-end encrypted transfers — all in a single native binary.
+**Synapse** is a peer-to-peer file transfer application for Local Area Networks. It features a premium, React-powered dark-mode desktop GUI built with Wails v2, automatic device discovery via mDNS, and end-to-end encrypted transfers — all in a single native binary.
 
 <p align="center">
   <img src="screenshots/send.png" alt="Send Files" width="100%">
@@ -37,7 +37,7 @@
 
 ## Features
 
-- **🖥️ Native Desktop GUI** — Beautiful glassmorphic interface built with Wails v2. Single binary, no browser or Electron required.
+- **🖥️ Native Desktop GUI** — Premium dark-mode interface built with React, Vite, and Framer Motion on Wails v2. Single binary footprint.
 - **📁 File & Directory Transfer** — Send individual files or entire folders (auto-zipped and streamed).
 - **🔍 Zero Configuration** — Automatic peer discovery on LAN using mDNS. No IP addresses, no setup.
 - **🔒 End-to-End Encrypted** — All transfers use TLS with ephemeral self-signed certificates.
@@ -58,7 +58,8 @@ Download the latest release from [GitHub Releases](https://github.com/id-root/Sy
 | Platform | Download |
 |----------|----------|
 | Linux (amd64) | `synapse-linux-amd64.tar.gz` |
-| Windows (amd64) | `synapse-windows-amd64.zip` |
+| Windows (Installer) | `synapse-amd64-installer.exe` |
+| Windows (Portable) | `synapse-windows-amd64.zip` |
 
 #### Linux Requirements
 ```bash
@@ -73,6 +74,7 @@ sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
 #### Prerequisites
 
 - Go 1.21+
+- Node.js 18+ (for frontend Vue/React build)
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation) v2
 - Linux: `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`
 
@@ -134,9 +136,13 @@ synapse/
 │   ├── settings.go            # Config persistence (~/.config/synapse/)
 │   └── history.go             # Transfer history
 ├── frontend/
-│   ├── index.html             # GUI layout
-│   ├── styles.css             # Glassmorphic beige design
-│   └── app.js                 # Frontend logic + Wails event bindings
+│   ├── src/
+│   │   ├── main.jsx           # React app entry
+│   │   ├── App.jsx            # Main app shell & router
+│   │   ├── tabs/              # Tab components (Send, Receive)
+│   │   └── components/        # Isolated UI components
+│   ├── package.json           # Frontend dependencies
+│   └── vite.config.js         # Vite bundler configuration
 ├── internal/
 │   ├── discovery/             # mDNS discovery (_synapse._tcp)
 │   └── transfer/
