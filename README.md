@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="screenshots/logo.png" alt="Synapse Logo" width="128">
+</p>
+
+<p align="center">
   <a href="https://go.dev//">
     <img src="https://img.shields.io/badge/Made%20with-Go-blue.svg" alt="Made with Go">
   </a>
@@ -14,24 +18,35 @@
 </p>
 
 
-# ⚡ Synapse
+#  Synapse
+Synapse is a high-performance, peer-to-peer file transfer system designed for Local Area Networks. It combines a premium desktop interface built with React and Wails v2 into a single native binary, enabling seamless cross-platform deployment.
 
-**Synapse** is a peer-to-peer file transfer application for Local Area Networks. It features a premium, React-powered  desktop GUI built with Wails v2, automatic device discovery via mDNS, and end-to-end encrypted transfers — all in a single native binary.
+The system leverages mDNS for zero-configuration device discovery and implements end-to-end encryption to ensure secure, direct transfers without intermediaries.
 
-<p align="center">
-  <img src="screenshots/send.png" alt="Send Files" width="100%">
-</p>
+With native clients across desktop and Android, Synapse delivers fast, frictionless file sharing across heterogeneous devices on the same network
 
-## Screenshots
 
+### 💻 Desktop Interface
 <table>
   <tr>
-    <td><img src="screenshots/send.png" alt="Send Files Tab" width="100%"><br><b>Send Files</b></td>
-    <td><img src="screenshots/receive.png" alt="Receive Files Tab" width="100%"><br><b>Receive Files</b></td>
+    <td><img src="screenshots/send.png" alt="Send Files" width="100%"><br><b>Send Files</b></td>
+    <td><img src="screenshots/receive.png" alt="Receive Files" width="100%"><br><b>Receive Files</b></td>
   </tr>
   <tr>
     <td><img src="screenshots/history.png" alt="Transfer History" width="100%"><br><b>Transfer History</b></td>
     <td><img src="screenshots/settings.png" alt="Settings" width="100%"><br><b>Settings</b></td>
+  </tr>
+</table>
+
+### 📱 Mobile Interface (Android)
+<table>
+  <tr>
+    <td><img src="screenshots/android/send.png" alt="Android Send" width="100%"><br><b>Mobile Send</b></td>
+    <td><img src="screenshots/android/receive.png" alt="Android Receive" width="100%"><br><b>Mobile Receive</b></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/android/history.png" alt="Android History" width="100%"><br><b>Mobile History</b></td>
+    <td><img src="screenshots/android/settings.png" alt="Android Settings" width="100%"><br><b>Mobile Settings</b></td>
   </tr>
 </table>
 
@@ -41,7 +56,7 @@
 - **📁 File & Directory Transfer** — Send individual files or entire folders (auto-zipped and streamed).
 - **🔍 Zero Configuration** — Automatic peer discovery on LAN using mDNS. No IP addresses, no setup.
 - **🔒 End-to-End Encrypted** — All transfers use TLS with ephemeral self-signed certificates.
-- **✅ Integrity Verified** — BLAKE3 checksums verify every transfer with minimal CPU overhead.
+- **✅ Integrity Verified** — SHA-256 checksums verify every transfer with native cryptographic integrity.
 - **⏸️ Resumable Transfers** — Detects partial files and resumes from where they left off.
 - **⚡ Adaptive Compression** — Text files compressed with Zstandard; already-compressed formats sent raw.
 - **📊 Real-Time Progress** — Live progress bar, speed, and percentage displayed in the GUI.
@@ -57,9 +72,18 @@ Download the latest release from [GitHub Releases](https://github.com/id-root/Sy
 
 | Platform | Download |
 |----------|----------|
-| Linux (amd64) | `synapse-linux-amd64.tar.gz` |
-| Windows (Installer) | `synapse-amd64-installer.exe` |
-| Windows (Portable) | `synapse-windows-amd64.zip` |
+| **Android** | [`synapse.apk`](https://github.com/id-root/Synapse/releases) |
+| **Windows (Installer)** | [`synapse-amd64-installer.exe`](https://github.com/id-root/Synapse/releases) |
+| **Windows (Portable)** | [`synapse-windows-amd64.zip`](https://github.com/id-root/Synapse/releases) |
+| **Linux (amd64)** | [`synapse-linux-amd64.tar.gz`](https://github.com/id-root/Synapse/releases) |
+
+### 📱 Synapse for Android
+
+The Android version brings the same "Elegant Beige" experience to your mobile device.
+
+1. **Download** the `synapse.apk` from the latest release.
+2. **Install** it on your Android device (ensure "Install from Unknown Sources" is enabled).
+3. **Permissions**: The app requires "Nearby Devices" permission for discovery and "Files/Media" access for transfers.
 
 #### Linux Requirements
 ```bash
@@ -161,7 +185,7 @@ All transfers use TLS over TCP with this protocol:
 1. **Header**: 8-byte length + JSON Metadata (`{"name", "size", "compression", ...}`)
 2. **Request**: 8-byte length + JSON (`{"offset": ...}`) for resume support
 3. **Content**: Raw or Zstd-compressed stream (chunked encoding if compressed)
-4. **Footer**: BLAKE3 checksum (32 bytes on wire)
+4. **Footer**: SHA-256 checksum (32 bytes on wire)
 
 ## Troubleshooting
 
