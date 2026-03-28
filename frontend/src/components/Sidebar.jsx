@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion'
-import {
-  UploadCloud, DownloadCloud, History, Settings, Zap, Wifi
-} from 'lucide-react'
+import logo from '../assets/logo.png'
 import styles from './Sidebar.module.css'
 
 const navItems = [
@@ -23,10 +21,10 @@ export default function Sidebar({ activeTab, onTabChange, deviceInfo }) {
       <div className={styles.logo}>
         <motion.div
           className={styles.logoIcon}
-          animate={{ boxShadow: ['0 0 16px rgba(99,102,241,0.3)', '0 0 28px rgba(99,102,241,0.5)', '0 0 16px rgba(99,102,241,0.3)'] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <Zap size={22} strokeWidth={2.5} />
+          <img src={logo} alt="Synapse Logo" className={styles.pigeonLogo} />
         </motion.div>
         <div>
           <h1 className={styles.logoText}>Synapse</h1>
