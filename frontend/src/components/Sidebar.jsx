@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { UploadCloud, DownloadCloud, History, Settings, Wifi } from 'lucide-react'
 import logo from '../assets/logo.png'
 import styles from './Sidebar.module.css'
 
