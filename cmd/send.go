@@ -32,7 +32,7 @@ var sendCmd = &cobra.Command{
 		}
 
 		// Pass nil for portChan
-		if err := transfer.StartSender(filePath, allowConn, nil); err != nil {
+		if err := transfer.StartSender([]string{filePath}, allowConn, nil); err != nil {
 			ui.Error("Error sending data: %v", err)
 			os.Exit(1)
 		}
