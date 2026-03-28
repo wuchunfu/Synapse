@@ -23,13 +23,20 @@
 .logoIcon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  background: white; /* Changed from gradient to white to make the logo pop */
   border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
   flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.pigeonLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .logoText {
