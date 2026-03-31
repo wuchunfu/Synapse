@@ -14,11 +14,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"crypto/sha256"
 	"github.com/example/synapse/pkg/ui"
 	"github.com/example/synapse/pkg/utils"
 	"github.com/klauspost/compress/zstd"
 	"github.com/schollz/progressbar/v3"
-	"crypto/sha256"
 )
 
 // ReceiverOptions configures the receiver behavior for GUI support
@@ -170,6 +170,8 @@ func ReceiveConnectWithOptions(address string, opts ReceiverOptions) error {
 		}
 		defer gzipReader.Close()
 		contentReader = gzipReader
+	} else if header.Compression == CompressionChunked {
+		contentReader = io.TeeReader(NewChunkedReader(conn), hasher)
 	} else {
 		remaining := header.Size - offset
 		limitedReader := io.LimitReader(conn, remaining)
