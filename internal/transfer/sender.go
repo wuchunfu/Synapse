@@ -57,73 +57,24 @@ func StartSenderWithOptions(inputPaths []string, opts SenderOptions) error {
 		return fmt.Errorf("no input paths provided")
 	}
 
-	var fileSize int64
-	var sourcePath string
-	var cleanup func()
-	var originalName string
-	var isArchive bool
-
-	if len(inputPaths) > 1 || (len(inputPaths) == 1 && isDirectory(inputPaths[0])) {
-		isArchive = true
-		
-		baseDir := ""
-		if len(inputPaths) > 0 {
-			info, err := os.Stat(inputPaths[0])
-			if err == nil {
-				if info.IsDir() {
-					baseDir = inputPaths[0]
-				} else {
-					baseDir = filepath.Dir(inputPaths[0])
-				}
-			}
-		}
-		if baseDir == "" {
-			baseDir = os.TempDir()
-		}
-
-		tmpFile, err := os.CreateTemp(baseDir, "synapse-*.zip")
-		if err != nil && baseDir != os.TempDir() {
-			tmpFile, err = os.CreateTemp(os.TempDir(), "synapse-*.zip")
-		}
-		if err != nil {
-			return fmt.Errorf("failed to create temp file: %w", err)
-		}
-
-		ui.Info("Archiving files/directories...")
-
-		if err := zipPaths(inputPaths, tmpFile); err != nil {
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
-			return fmt.Errorf("failed to zip paths: %w", err)
-		}
-
-		stat, err := tmpFile.Stat()
-		if err != nil {
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
-			return err
-		}
-		fileSize = stat.Size()
-		sourcePath = tmpFile.Name()
-		originalName = "Synapse_Transfer.zip"
-		tmpFile.Close()
-
-		cleanup = func() {
-			os.Remove(sourcePath)
-		}
-	} else {
-		inputPath := inputPaths[0]
-		fileInfo, err := os.Stat(inputPath)
-		if err != nil {
-			return fmt.Errorf("failed to get file info: %w", err)
-		}
-		isArchive = false
-		fileSize = fileInfo.Size()
-		sourcePath = inputPath
-		originalName = filepath.Base(inputPath)
-		cleanup = func() {}
+	isArchive := len(inputPaths) > 1 || (len(inputPaths) == 1 && isDirectory(inputPaths[0]))
+	originalName := "Synapse_Transfer.zip"
+	if !isArchive && len(inputPaths) == 1 {
+		originalName = filepath.Base(inputPaths[0])
 	}
-	defer cleanup()
+
+	var totalSize int64
+	for _, path := range inputPaths {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			walkDirSize(path, &totalSize)
+		} else {
+			totalSize += info.Size()
+		}
+	}
 
 	// 1. Generate TLS Config
 	cert, err := GenerateTLSCertificate()
@@ -164,27 +115,22 @@ func StartSenderWithOptions(inputPaths []string, opts SenderOptions) error {
 
 	var promptMu sync.Mutex
 
-	// Close listener when context is cancelled
 	go func() {
 		<-ctx.Done()
 		listener.Close()
 	}()
 
-	// 4. Accept loop
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			// Check if context was cancelled
 			select {
 			case <-ctx.Done():
 				return nil
 			default:
 			}
-			// Listener was closed externally or error occurred
 			if listener.Addr() == nil {
 				return nil
 			}
-			// Unexpected error - log it
 			ui.Error("Accept error: %v", err)
 			continue
 		}
@@ -210,15 +156,30 @@ func StartSenderWithOptions(inputPaths []string, opts SenderOptions) error {
 				onProgress: opts.OnProgress,
 				peerAddr:   c.RemoteAddr().String(),
 			}
-			if err := handleTransfer(c, originalName, sourcePath, fileSize, isArchive, transferOpts); err != nil {
-				ui.Error("Transfer to %s failed: %v", c.RemoteAddr(), err)
-				if opts.OnError != nil {
-					opts.OnError(c.RemoteAddr().String(), err)
+
+			if isArchive {
+				if err := handleStreamingTransfer(c, inputPaths, originalName, totalSize, transferOpts); err != nil {
+					ui.Error("Transfer to %s failed: %v", c.RemoteAddr(), err)
+					if opts.OnError != nil {
+						opts.OnError(c.RemoteAddr().String(), err)
+					}
+				} else {
+					ui.Success("Transfer to %s completed", c.RemoteAddr())
+					if opts.OnComplete != nil {
+						opts.OnComplete(c.RemoteAddr().String(), originalName)
+					}
 				}
 			} else {
-				ui.Success("Transfer to %s completed", c.RemoteAddr())
-				if opts.OnComplete != nil {
-					opts.OnComplete(c.RemoteAddr().String(), originalName)
+				if err := handleTransfer(c, originalName, inputPaths[0], totalSize, false, transferOpts); err != nil {
+					ui.Error("Transfer to %s failed: %v", c.RemoteAddr(), err)
+					if opts.OnError != nil {
+						opts.OnError(c.RemoteAddr().String(), err)
+					}
+				} else {
+					ui.Success("Transfer to %s completed", c.RemoteAddr())
+					if opts.OnComplete != nil {
+						opts.OnComplete(c.RemoteAddr().String(), originalName)
+					}
 				}
 			}
 		}(conn)
@@ -488,4 +449,130 @@ func zipPaths(paths []string, target io.Writer) error {
 
 func zipDirectory(source string, target io.Writer) error {
 	return zipPaths([]string{source}, target)
+}
+
+func walkDirSize(path string, total *int64) error {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			walkDirSize(filepath.Join(path, entry.Name()), total)
+		} else {
+			info, err := entry.Info()
+			if err == nil {
+				*total += info.Size()
+			}
+		}
+	}
+	return nil
+}
+
+func handleStreamingTransfer(conn net.Conn, inputPaths []string, originalName string, totalSize int64, opts transferOptions) error {
+	reader, writer := io.Pipe()
+	var zipErr error
+	var zipWg sync.WaitGroup
+
+	zipWg.Add(1)
+	go func() {
+		defer zipWg.Done()
+		defer writer.Close()
+		zipErr = zipPaths(inputPaths, writer)
+	}()
+
+	header := FileHeader{
+		Name:        filepath.Base(originalName),
+		Size:        totalSize,
+		IsArchive:   true,
+		Compression: CompressionChunked,
+	}
+
+	headerBytes, err := json.Marshal(header)
+	if err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to marshal header: %w", err)
+	}
+
+	if err := binary.Write(conn, binary.BigEndian, int64(len(headerBytes))); err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to write header length: %w", err)
+	}
+
+	if _, err := conn.Write(headerBytes); err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to send header: %w", err)
+	}
+
+	var reqLen int64
+	if err := binary.Read(conn, binary.BigEndian, &reqLen); err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to read request length: %w", err)
+	}
+
+	reqBytes := make([]byte, reqLen)
+	if _, err := io.ReadFull(conn, reqBytes); err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to read request JSON: %w", err)
+	}
+
+	var req TransferRequest
+	if err := json.Unmarshal(reqBytes, &req); err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to unmarshal request: %w", err)
+	}
+
+	if req.Offset > 0 {
+		ui.Info("Resuming not supported for streaming transfers, starting from beginning")
+	}
+
+	hasher := sha256.New()
+	chunkedWriter := NewChunkedWriter(io.MultiWriter(conn, hasher))
+
+	var progressInput io.Reader
+	if opts.onProgress != nil {
+		progressInput = &progressReader{
+			inner:    reader,
+			total:    totalSize,
+			offset:   0,
+			fileName: originalName,
+			peerAddr: opts.peerAddr,
+			callback: opts.onProgress,
+		}
+	} else {
+		progressInput = reader
+	}
+
+	buf := make([]byte, 4*1024*1024)
+	_, err = io.CopyBuffer(chunkedWriter, progressInput, buf)
+	if err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to stream archive: %w", err)
+	}
+
+	if err := chunkedWriter.Close(); err != nil {
+		reader.Close()
+		zipWg.Wait()
+		return fmt.Errorf("failed to close chunked writer: %w", err)
+	}
+
+	zipWg.Wait()
+	if zipErr != nil {
+		return fmt.Errorf("failed to create archive: %w", zipErr)
+	}
+
+	checksum := hasher.Sum(nil)
+	if _, err := conn.Write(checksum); err != nil {
+		return fmt.Errorf("failed to send checksum: %w", err)
+	}
+
+	fmt.Println()
+	return nil
 }
