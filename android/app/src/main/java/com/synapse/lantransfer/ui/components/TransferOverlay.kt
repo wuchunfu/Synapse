@@ -56,6 +56,7 @@ fun TransferOverlay(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .systemBarsPadding()
                 .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
                 .clip(shape)
                 .background(
