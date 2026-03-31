@@ -19,7 +19,6 @@ import (
 type App struct {
 	ctx context.Context
 
-	// Sender state
 	senderMu     sync.Mutex
 	senderCancel context.CancelFunc
 	senderPort   int
@@ -29,7 +28,6 @@ type App struct {
 	activeConnMu sync.Mutex
 	activeConn   net.Conn
 
-	// Settings
 	settings Settings
 }
 
@@ -174,13 +172,6 @@ func (a *App) StartSending(filePaths []string) error {
 	go func() {
 		opts := transfer.SenderOptions{
 			AllowConn: func(addr string) bool {
-				if a.settings.AutoAccept {
-					wailsRuntime.EventsEmit(a.ctx, "connection:accepted", addr)
-					return true
-				}
-				// Emit event and wait for response
-				wailsRuntime.EventsEmit(a.ctx, "connection:request", addr)
-				// For now, auto-accept (proper dialog would need a response channel)
 				return true
 			},
 			PortChan: portChan,
@@ -209,7 +200,6 @@ func (a *App) StartSending(filePaths []string) error {
 			},
 			OnError: func(peerAddr string, err error) {
 				a.clearConn()
-				// Use the first file name as a reference if it fails early
 				baseName := "Transfer"
 				if len(filePaths) > 0 {
 					baseName = filepath.Base(filePaths[0])
