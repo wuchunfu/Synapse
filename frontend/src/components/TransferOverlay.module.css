@@ -8,7 +8,7 @@
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-lg), 0 0 40px var(--accent-subtle);
   padding: 1.25rem;
-  z-index: 500;
+  z-index: 9999;
 }
 
 .header {
