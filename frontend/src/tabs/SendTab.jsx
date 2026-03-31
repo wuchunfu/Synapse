@@ -113,7 +113,7 @@ export default function SendTab({ onSendingStart, onSendingStop, isSending, send
       {/* Drop Zone */}
       <motion.div
         className={`${styles.dropZone} ${dragOver ? styles.dragOver : ''}`}
-        onClick={() => document.getElementById('file-input-hidden')?.click()}
+        onClick={browseFiles}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={e => { e.preventDefault(); setDragOver(false); showToast('info', 'Use Browse button to select files') }}
