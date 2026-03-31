@@ -21,24 +21,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.synapse.lantransfer.data.model.TransferState
+import com.synapse.lantransfer.data.service.TransferManager
 import com.synapse.lantransfer.ui.components.GlassCard
 import com.synapse.lantransfer.ui.components.RadarBlip
 import com.synapse.lantransfer.ui.components.RadarDisplay
-import com.synapse.lantransfer.ui.components.TransferOverlay
 import com.synapse.lantransfer.ui.screens.viewmodel.ReceiveViewModel
 import com.synapse.lantransfer.ui.theme.*
 import com.synapse.lantransfer.util.formatBytes
-import com.synapse.lantransfer.util.formatSpeed
 
 @Composable
-fun ReceiveScreen(viewModel: ReceiveViewModel = viewModel()) {
+fun ReceiveScreen(
+    viewModel: ReceiveViewModel = rememberReceiveViewModel(),
+    transferManager: TransferManager? = null
+) {
     val scanning by viewModel.isScanning.collectAsState()
     val hasScanned by viewModel.hasScanned.collectAsState()
     val peers by viewModel.discoveredPeers.collectAsState()
     val connectingTo by viewModel.connectingTo.collectAsState()
-    val transferState by viewModel.transferState.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -53,9 +52,6 @@ fun ReceiveScreen(viewModel: ReceiveViewModel = viewModel()) {
         ),
         label = "spinRotation"
     )
-
-    val showOverlay = transferState is TransferState.Receiving &&
-        (transferState as? TransferState.Receiving)?.progress != null
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -318,23 +314,6 @@ fun ReceiveScreen(viewModel: ReceiveViewModel = viewModel()) {
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // Transfer progress overlay
-        if (showOverlay) {
-            val progress = (transferState as? TransferState.Receiving)?.progress
-            if (progress != null) {
-                TransferOverlay(
-                    fileName = progress.fileName,
-                    progress = progress.fraction,
-                    transferredBytes = formatBytes(progress.bytesTransferred),
-                    totalBytes = formatBytes(progress.totalBytes),
-                    speed = formatSpeed(progress.speed),
-                    isVisible = true,
-                    onCancel = { viewModel.cancelReceive() },
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
-        }
-
         // Auto Accept Dialog
         val pendingPeer by viewModel.pendingPeerRequest.collectAsState()
         if (pendingPeer != null) {
@@ -371,4 +350,9 @@ fun ReceiveScreen(viewModel: ReceiveViewModel = viewModel()) {
             )
         }
     }
+}
+
+@Composable
+private fun rememberReceiveViewModel(): ReceiveViewModel {
+    return androidx.lifecycle.viewmodel.compose.viewModel()
 }
