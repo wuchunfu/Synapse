@@ -26,23 +26,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.synapse.lantransfer.data.model.TransferState
-import com.synapse.lantransfer.data.service.TransferManager
 import com.synapse.lantransfer.ui.components.GlassCard
+import com.synapse.lantransfer.ui.components.TransferOverlay
 import com.synapse.lantransfer.ui.screens.viewmodel.SendViewModel
 import com.synapse.lantransfer.ui.theme.*
 import com.synapse.lantransfer.util.formatBytes
+import com.synapse.lantransfer.util.formatSpeed
 
 @Composable
-fun SendScreen(
-    viewModel: SendViewModel = rememberSendViewModel(),
-    transferManager: TransferManager? = null
-) {
+fun SendScreen(viewModel: SendViewModel = viewModel()) {
     val selectedFiles by viewModel.selectedFiles.collectAsState()
     val isSending by viewModel.isBroadcasting.collectAsState()
     val senderPort by viewModel.senderPort.collectAsState()
+    val transferState by viewModel.transferState.collectAsState()
 
-    // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
@@ -53,6 +52,12 @@ fun SendScreen(
 
     val scrollState = rememberScrollState()
 
+    val showOverlay = transferState is TransferState.Sending &&
+        (transferState as? TransferState.Sending)?.progress != null
+
+    val showZipping = transferState is TransferState.Zipping
+    val showZipComplete = transferState is TransferState.ZipComplete
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -60,7 +65,6 @@ fun SendScreen(
                 .verticalScroll(scrollState)
                 .padding(20.dp)
         ) {
-            // Header
             Text(
                 text = "Send Files",
                 style = SynapseTypography.displayLarge,
@@ -74,7 +78,6 @@ fun SendScreen(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            // Drop Zone
             val dropScale by animateFloatAsState(
                 targetValue = 1f,
                 animationSpec = spring(dampingRatio = 0.6f),
@@ -92,7 +95,6 @@ fun SendScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Upload icon
                     Box(
                         modifier = Modifier
                             .size(64.dp)
@@ -122,7 +124,6 @@ fun SendScreen(
                         modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
                     )
 
-                    // Browse Button
                     Box(
                         modifier = Modifier
                             .background(Brush.linearGradient(listOf(Accent1, Accent2)), RoundedCornerShape(20.dp))
@@ -152,7 +153,6 @@ fun SendScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Selected Files List
             if (selectedFiles.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -176,6 +176,55 @@ fun SendScreen(
                             style = SynapseTypography.labelSmall,
                             color = Accent2
                         )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = showZipping || showZipComplete,
+                    enter = fadeIn() + slideInVertically(),
+                    exit = fadeOut() + slideOutVertically()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                            .background(
+                                if (showZipComplete) SuccessSubtle else AccentSubtle,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (showZipping) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Accent1
+                                )
+                                Text(
+                                    text = "Creating zip archive...",
+                                    style = SynapseTypography.bodyMedium,
+                                    color = Accent1,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Success,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Zip complete! Ready to send",
+                                    style = SynapseTypography.bodyMedium,
+                                    color = Success,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -204,7 +253,6 @@ fun SendScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // File icon
                             Box(
                                 modifier = Modifier
                                     .size(42.dp)
@@ -256,18 +304,15 @@ fun SendScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Action Bar
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
                 ) {
                     if (isSending) {
-                        // Broadcasting state
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            // Pulse animation
                             val pulseScale by rememberInfiniteTransition(label = "pulse").animateFloat(
                                 initialValue = 1f,
                                 targetValue = 1.8f,
@@ -336,7 +381,6 @@ fun SendScreen(
                             }
                         }
                     } else {
-                        // Ready state
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -379,10 +423,27 @@ fun SendScreen(
 
             Spacer(modifier = Modifier.height(100.dp))
         }
-    }
-}
 
-@Composable
-private fun rememberSendViewModel(): SendViewModel {
-    return androidx.lifecycle.viewmodel.compose.viewModel()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
+            if (showOverlay) {
+                val progress = (transferState as? TransferState.Sending)?.progress
+                if (progress != null) {
+                    TransferOverlay(
+                        fileName = progress.fileName,
+                        progress = progress.fraction,
+                        transferredBytes = formatBytes(progress.bytesTransferred),
+                        totalBytes = formatBytes(progress.totalBytes),
+                        speed = formatSpeed(progress.speed),
+                        isVisible = true,
+                        onCancel = { viewModel.stopBroadcasting() },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+            }
+        }
+    }
 }
