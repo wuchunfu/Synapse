@@ -485,7 +485,7 @@ func handleStreamingTransfer(conn net.Conn, inputPaths []string, originalName st
 		Name:        filepath.Base(originalName),
 		Size:        totalSize,
 		IsArchive:   true,
-		Compression: CompressionChunked,
+		Compression: CompressionNone,
 	}
 
 	headerBytes, err := json.Marshal(header)
@@ -533,7 +533,7 @@ func handleStreamingTransfer(conn net.Conn, inputPaths []string, originalName st
 	}
 
 	hasher := sha256.New()
-	chunkedWriter := NewChunkedWriter(io.MultiWriter(conn, hasher))
+	destination := io.MultiWriter(conn, hasher)
 
 	var progressInput io.Reader
 	if opts.onProgress != nil {
@@ -550,17 +550,11 @@ func handleStreamingTransfer(conn net.Conn, inputPaths []string, originalName st
 	}
 
 	buf := make([]byte, 4*1024*1024)
-	_, err = io.CopyBuffer(chunkedWriter, progressInput, buf)
+	_, err = io.CopyBuffer(destination, progressInput, buf)
 	if err != nil {
 		reader.Close()
 		zipWg.Wait()
 		return fmt.Errorf("failed to stream archive: %w", err)
-	}
-
-	if err := chunkedWriter.Close(); err != nil {
-		reader.Close()
-		zipWg.Wait()
-		return fmt.Errorf("failed to close chunked writer: %w", err)
 	}
 
 	zipWg.Wait()
