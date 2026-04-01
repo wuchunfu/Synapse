@@ -81,3 +81,23 @@
 .progressWrap { width: 100%; }
 
 .cancelBtn { margin-top: 0; }
+
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 0.7rem;
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-glow);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-1);
+  width: fit-content;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
