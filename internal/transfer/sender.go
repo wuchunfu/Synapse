@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"crypto/sha256"
@@ -352,19 +351,7 @@ func (r *progressReader) Read(p []byte) (n int, err error) {
 }
 
 func getCompressionMethod(filename string, isDir bool) string {
-	if isDir {
-		return CompressionNone
-	}
-
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
-	case ".jpg", ".png", ".mp4", ".zip", ".iso", ".dmg", ".gz", ".zst", ".7z", ".rar":
-		return CompressionNone
-	case ".txt", ".log", ".json", ".md", ".go":
-		return CompressionZstd
-	default:
-		return CompressionNone
-	}
+	return CompressionNone
 }
 
 type compositeCloser struct {
